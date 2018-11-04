@@ -2,19 +2,16 @@ import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.sql.Time;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class FileReceiver extends Thread{
+public class FiverReceiver extends Thread{
 
     private ServerSocket ss;
     static AtomicBoolean allTransfersCompleted = new AtomicBoolean(false);
@@ -52,7 +49,7 @@ public class FileReceiver extends Thread{
     }
 
 
-    public FileReceiver(int port) {
+    public FiverReceiver(int port) {
         try {
             ss = new ServerSocket(port);
             //ss.setReceiveBufferSize(134217728);
@@ -159,7 +156,7 @@ public class FileReceiver extends Thread{
         if (args.length > 0) {
             baseDir = args[0];
         }
-        FileReceiver fs = new FileReceiver(2008);
+        FiverReceiver fs = new FiverReceiver(2008);
         fs.start();
     }
 

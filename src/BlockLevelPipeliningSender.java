@@ -6,9 +6,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 
 public class BlockLevelPipeliningSender {
     private Socket s;
@@ -196,9 +193,9 @@ public class BlockLevelPipeliningSender {
         if (args.length > 3) {
             fileOrdering = args[3];
         }
-        BlockLevelPipeliningSender fc = new BlockLevelPipeliningSender(destIp, 2038);
+        BlockLevelPipeliningSender blockLevelPipeliningSender = new BlockLevelPipeliningSender(destIp, 2038);
         try {
-            fc.sendFile(path, blockSize);
+            blockLevelPipeliningSender.sendFile(path, blockSize);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -274,7 +271,7 @@ public class BlockLevelPipeliningSender {
                         System.out.println("---success");
                     }
                     md.reset();
-                    /*
+
                     if (debug) {
                         System.out.println("Checksum END File" + currentBlock.fileName +
                                 " offset:" + humanReadableByteCount(currentBlock.offset, false) +
@@ -283,7 +280,7 @@ public class BlockLevelPipeliningSender {
                                 " duration:" + (System.currentTimeMillis() - checksumStart) / 1000.0 + " seconds" +
                                 " time:" + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
                     }
-                    */
+
                     dis.close();
                     fis.close();
                 } catch (IOException e) {

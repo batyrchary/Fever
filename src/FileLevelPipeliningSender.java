@@ -26,7 +26,7 @@ public class FileLevelPipeliningSender {
     static long totalTransferredBytes = 0;
     static long totalChecksumBytes = 0;
     long startTime;
-    boolean debug = true;
+    boolean debug = false;
 
     static String fileOrdering = "shuffle";
 
@@ -141,9 +141,9 @@ public class FileLevelPipeliningSender {
         if (args.length > 2) {
             fileOrdering = args[2];
         }
-        FileLevelPipeliningSender fc = new FileLevelPipeliningSender(destIp, 2028);
+        FileLevelPipeliningSender fileLevelPipeliningSender = new FileLevelPipeliningSender(destIp, 2028);
         try {
-            fc.sendFile(path);
+            fileLevelPipeliningSender.sendFile(path);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -214,15 +214,13 @@ public class FileLevelPipeliningSender {
 
             }
             System.out.println("MyThread - END " + Thread.currentThread().getName());
-            } catch (IOException e) {
-                e.printStackTrace();
             }
 
         }
 
     }
 
-
+/*
     public class MonitorThread extends Thread {
         long lastTransferredBytes = 0;
         long lastChecksumBytes = 0;
@@ -244,4 +242,6 @@ public class FileLevelPipeliningSender {
 
         }
     }
+
 }
+*/

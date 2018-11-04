@@ -71,8 +71,6 @@ public class BlockLevelPipeliningReceiver extends Thread{
 
         startTime = System.currentTimeMillis();
         DataInputStream dataInputStream  = new DataInputStream(clientSock.getInputStream());
-        //int numOfBlocks = dataInputStream.readInt();
-        //System.out.println("Will receive " + numOfBlocks +" block(s)");
 
         allTransfersCompleted = false;
         ChecksumRunnable checksumRunnable = new ChecksumRunnable();
@@ -241,13 +239,13 @@ public class BlockLevelPipeliningReceiver extends Thread{
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                //if (debug) {
+                if (debug) {
                     System.out.println("Finished checksum :" + currentBlock.fileName +
                             " offset:" + humanReadableByteCount(currentBlock.offset, false) +
                             " length:" + humanReadableByteCount(currentBlock.length, false) +
                             " Checksum  " + hex + " duration " + (System.currentTimeMillis() - init) / 1000.0 + " s" +
                             " time:" + (System.currentTimeMillis() - startTime) / 1000.0 + " sec");
-                //}
+                }
 
                 checksumCompletedBlockCount++;
                 md.reset();

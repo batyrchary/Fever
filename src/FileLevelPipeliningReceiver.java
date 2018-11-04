@@ -21,14 +21,11 @@ public class FileLevelPipeliningReceiver{
     Semaphore checksumLock = new Semaphore(2);
     Semaphore transferLock = new Semaphore(0);
 
-    boolean debug = true;
+    boolean debug = false;
 
     public FileLevelPipeliningReceiver(int port) {
         try {
             ss = new ServerSocket( port);
-            //
-            //
-            // ss.setReceiveBufferSize(33554432);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -114,8 +111,8 @@ public class FileLevelPipeliningReceiver{
         if (args.length > 0) {
             baseDir = args[0];
         }
-        FileLevelPipeliningReceiver fs = new FileLevelPipeliningReceiver(2028);
-        fs.run();
+        FileLevelPipeliningReceiver fileLevelPipeliningReceiver = new FileLevelPipeliningReceiver(2028);
+        fileLevelPipeliningReceiver.run();
     }
 
     public class ChecksumRunnable implements Runnable {

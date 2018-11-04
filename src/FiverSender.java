@@ -9,7 +9,7 @@ import java.util.concurrent.*;
 import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
 
 
-public class FileSender {
+public class FiverSender {
     private Socket s;
 
     static boolean allFileTransfersCompleted = false;
@@ -28,12 +28,10 @@ public class FileSender {
 
     static LinkedBlockingQueue<Item> items = new LinkedBlockingQueue<>(10000);
 
-    public FileSender(String host, int port) {
+    public FiverSender(String host, int port) {
         try {
             s = new Socket(host, port);
             s.setSoTimeout(10000);
-            //s.setSendBufferSize(33554432);
-            //s.setSendBufferSize(134217728);
         } catch (Exception e) {
             System.out.println(e);
         }
@@ -163,7 +161,7 @@ public class FileSender {
         if (args.length > 2) {
             fileOrdering = args[2];
         }
-        FileSender fc = new FileSender(destIp, 2008);
+        FiverSender fc = new FiverSender(destIp, 2008);
         try {
             fc.sendFile(path);
         } catch (IOException e) {
