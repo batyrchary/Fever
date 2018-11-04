@@ -2,6 +2,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.io.*;
+import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -13,13 +14,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
 
 
-public class FileSender {
+public class FileLevelPipeliningSender {
     private Socket s;
 
+    static AtomicBoolean fileTransferCompleted = new AtomicBoolean(false);
     static boolean allFileTransfersCompleted = false;
 
-
-    File[] files;
+    static Semaphore checksumLock = new Semaphore(2);
+    static Semaphore transferLock = new Semaphore(0);
 
     static long totalTransferredBytes = 0;
     static long totalChecksumBytes = 0;
@@ -28,15 +30,10 @@ public class FileSender {
 
     static String fileOrdering = "shuffle";
 
-    static LinkedBlockingQueue<Item> items = new LinkedBlockingQueue<>(10000);
-    static LinkedBlockingQueue<Item> items2 = new LinkedBlockingQueue<>(10000);
-
-    public FileSender(String host, int port) {
+    public FileLevelPipeliningSender(String host, int port) {
         try {
             s = new Socket(host, port);
             s.setSoTimeout(10000);
-            s.setSendBufferSize(134217728);
-            //s.setSendBufferSize(134217728);
         } catch (Exception e) {
             System.out.println(e);
         }
@@ -45,18 +42,18 @@ public class FileSender {
 
     public void sendFile(String path) throws IOException {
 
-        new MonitorThread().start();
+        //new MonitorThread().start();
+
         startTime = System.currentTimeMillis();
         DataOutputStream dos = new DataOutputStream(s.getOutputStream());
 
         File file =new File(path);
-
+        File[] files;
         if(file.isDirectory()) {
             files = file.listFiles();
         } else {
             files = new File[] {file};
         }
-        System.out.println("Will transfer " + files.length+ " files");
 
         if (fileOrdering.compareTo("shuffle") == 0){
             List<File> fileList = Arrays.asList(files);
@@ -79,7 +76,10 @@ public class FileSender {
             System.exit(-1);
         }
 
+
+        System.out.println("Will transfer " + files.length+ " files");
         dos.writeInt(files.length);
+
         ChecksumThread worker = new ChecksumThread(files.length);
         Thread thread = new Thread(worker);
         thread.start();
@@ -91,35 +91,39 @@ public class FileSender {
             File currentFile = files[i];
             dos.writeUTF(currentFile.getName());
             dos.writeLong(currentFile.length());
-            if (debug) {
-                System.out.println("Transfer START file " + currentFile.getName() + " size:" +
-                        humanReadableByteCount(currentFile.length(), false) + " time:" +
-                        (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
-            }
-            long fileTransferStartTime = System.currentTimeMillis();
-            FileInputStream fis = new FileInputStream(currentFile);
+            fileTransferCompleted.set(false);
             try {
-                while ((n = fis.read(buffer)) > 0) {
-                    dos.write(buffer, 0, n);
-                    if (i % 2 == 0) {
-                        items.offer(new Item(buffer, n), Long.MAX_VALUE, TimeUnit.MILLISECONDS);
-                    } else {
-                        items2.offer(new Item(buffer, n), Long.MAX_VALUE, TimeUnit.MILLISECONDS);
-                    }
-                    totalTransferredBytes += n;
-                }
+                checksumLock.acquire();
             } catch (InterruptedException e) {
-                    e.printStackTrace();
+                e.printStackTrace();
             }
             if (debug) {
-                System.out.println("Transfer END file " + currentFile.getName() + "\t duration:" +
-                        (System.currentTimeMillis() - fileTransferStartTime) / 1000.0 + " time:" +
-                        (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
+                System.out.println("Transfer START " + i + "\t" + currentFile.getName() + " size:" +
+                        humanReadableByteCount(currentFile.length(), false) + " time:" +
+                        (System.currentTimeMillis() - startTime) / 1000.0 + "seconds");
             }
+            FileInputStream fis = new FileInputStream(files[i]);
+            long remaining = currentFile.length();
+            while ((n = fis.read(buffer, 0, (int) Math.min((long)buffer.length, remaining))) > 0) {
+                dos.write(buffer, 0, n);
+                remaining -=n;
+                totalTransferredBytes += n;
+
+            }
+            if (debug) {
+                System.out.println("TRANSFER END file " + currentFile.getName() + "\t duration:" +
+                        (System.currentTimeMillis() - startTime) / 1000.0 + " seconds time:" +
+                        (System.currentTimeMillis() - startTime) / 1000.0 + "seconds");
+            }
+            fileTransferCompleted.set(true); // Mark that file transfer completed
             fis.close();
+            worker.setFileName(files[i].getAbsolutePath());
+            transferLock.release();
         }
         dos.close();
         allFileTransfersCompleted = true;
+        double totalDuration = (System.currentTimeMillis() - startTime) / 1000.0;
+        System.out.println("Total duration: " + totalDuration);
     }
 
 
@@ -137,7 +141,7 @@ public class FileSender {
         if (args.length > 2) {
             fileOrdering = args[2];
         }
-        FileSender fc = new FileSender(destIp, 2008);
+        FileLevelPipeliningSender fc = new FileLevelPipeliningSender(destIp, 2028);
         try {
             fc.sendFile(path);
         } catch (IOException e) {
@@ -145,27 +149,19 @@ public class FileSender {
         }
     }
 
-
-    class Item {
-        byte[] buffer;
-        int length;
-
-        public Item(byte[] buffer, int length){
-            this.buffer = buffer;
-            this.length = length;
-        }
-    }
-
-
     public class ChecksumThread implements Runnable {
+        String fileName;
         int totalFileCount;
+        int checksumComputedFiles = 0;
         MessageDigest md = null;
 
         public ChecksumThread (int totalFileCount) {
             this.totalFileCount = totalFileCount;
         }
 
-
+        public void setFileName (String fileName) {
+            this.fileName = fileName;
+        }
 
         public void reset () {
             md.reset();
@@ -179,47 +175,48 @@ public class FileSender {
             } catch (NoSuchAlgorithmException e) {
                 e.printStackTrace();
             }
-            //long startTime = System.currentTimeMillis();
-            for (int i = 0; i < files.length; i++) {
-                long fileSize = files[i].length();
-                long remaining = fileSize;
-                if (debug) {
-                    System.out.println("Checksum START file:" + files[i].getName() +  " size:" +
-                            humanReadableByteCount(fileSize, false) + "  time:" +
-                            (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
+            while (checksumComputedFiles < totalFileCount) {
+                try {
+                    transferLock.acquire();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
+                if (debug) {
+                    System.out.println("Checksum START " + fileName + " time:" +
+                            (System.currentTimeMillis() - startTime) / 1000.0 + "seconds");
+                }
+                String currentFileName = fileName;
                 long fileStartTime = System.currentTimeMillis();
-                while (remaining > 0) {
-                    Item item = null;
-                    try {
-                        if (i % 2 == 0) {
-                            item = items.poll(100, TimeUnit.MILLISECONDS);
-                        } else {
-                            item = items2.poll(100, TimeUnit.MILLISECONDS);
-                        }
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                byte[] buffer = new byte[128*1024];
+                int n;
+                try {
+                    FileInputStream fis = new FileInputStream(currentFileName);
+                    DigestInputStream dis = new DigestInputStream(fis, md);
+                    long total = 0;
+                    while ((n = dis.read(buffer)) > 0) {
+                        totalChecksumBytes +=n;
+                        total += n;
                     }
-                    if (item == null) {
-                        continue;
+                    byte[] digest = md.digest();
+                    String hex = (new HexBinaryAdapter()).marshal(digest);
+                    if (debug) {
+                        System.out.println("Checksum END File" + currentFileName + " Checksum  " + hex + " duration:" +
+                                (System.currentTimeMillis() - fileStartTime) + " ms time:" +
+                                (System.currentTimeMillis() - startTime) / 1000.0 + "seconds " + humanReadableByteCount(total, false));
                     }
-                    md.update(item.buffer, 0, item.length);
-                    totalChecksumBytes += item.length;
-                    remaining -= item.length;
+                    dis.close();
+                    fis.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-                byte[] digest = md.digest();
-                String hex = (new HexBinaryAdapter()).marshal(digest);
+                checksumComputedFiles ++;
+                checksumLock.release();
 
-                double duration = (System.currentTimeMillis() - fileStartTime) / 1000.0;
-                if (debug) {
-                    System.out.println("Checksum  END " + hex + " file:" + files[i].getName() +
-                            "  duration:" + duration + " time :" +
-                            (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
-                }
             }
             System.out.println("MyThread - END " + Thread.currentThread().getName());
-            double totalDuration = (System.currentTimeMillis() - startTime) / 1000.0;
-            System.out.println("Total duration: " + totalDuration);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
         }
 
@@ -233,11 +230,10 @@ public class FileSender {
         @Override
         public void run() {
             try {
-                while (!allFileTransfersCompleted || !items.isEmpty()) {
+                while (!allFileTransfersCompleted) {
                     double transferThrInMbps = 8 * (totalTransferredBytes-lastTransferredBytes)/(1000*1000);
                     double checksumThrInMbps = 8 * (totalChecksumBytes-lastChecksumBytes)/(1024*1024);
-                    System.out.println("Network thr:" + transferThrInMbps + "Mb/s I/O thr:" + checksumThrInMbps + " Mb/s" +
-                    " items:" + items.size() + "\t items2:" + items2.size());
+                    System.out.println("Network thr:" + transferThrInMbps + "Mb/s I/O thr:" + checksumThrInMbps + " Mb/s");
                     lastTransferredBytes = totalTransferredBytes;
                     lastChecksumBytes = totalChecksumBytes;
                     Thread.sleep(1000);
