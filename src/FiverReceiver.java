@@ -201,10 +201,10 @@ public class FiverReceiver extends Thread{
                 String fileName = fiverFile.file.getName();
                 long fileOffset = fiverFile.offset;
                 long fileLength = fiverFile.length;
-                //if (debug) {
+                if (debug) {
                     System.out.println("Starting to checksum:" + fileName + " size:" + fileLength + " time:" +
                     (System.currentTimeMillis() - startTime) / 1000.0);
-                //}
+                }
                 long init = System.currentTimeMillis();
                 Long remaining = fileLength;
                 Long processedBytes = 0L;
@@ -223,11 +223,11 @@ public class FiverReceiver extends Thread{
                 }
                 try {
                     int blockCount = 0;
-                    while (remaining > 0) {
+                    while (remaining > 0 || processedBytes > 0L) {
                         Long currentBlockSize = Math.min (INTEGRITY_VERIFICATION_BLOCK_SIZE, remaining + processedBytes);
                         System.out.println("Block size:" + currentBlockSize);
                         byte[] leftOverBytes = null;
-                        while (processedBytes.compareTo( currentBlockSize) < 0) {
+                        while (processedBytes < currentBlockSize ) {
                             item = items.poll(100, TimeUnit.MILLISECONDS);
                             if (item == null) {
                                 continue;
@@ -236,10 +236,8 @@ public class FiverReceiver extends Thread{
                             if (item.length + processedBytes > currentBlockSize) {
                                 usedBytes = (int)(currentBlockSize - processedBytes);
                                 md.update(item.buffer, 0, usedBytes);
-                                leftOverBytes = Arrays.copyOfRange(item.buffer, usedBytes + 1, item.length+1);
-                                System.out.println("Leftover");
+                                leftOverBytes = Arrays.copyOfRange(item.buffer, usedBytes , item.length);
                             } else {
-                                //System.out.println("Processing " +item.length + " total: " + (processedBytes + usedBytes));
                                 md.update(item.buffer, 0, item.length);
                             }
                             remaining -= usedBytes;
@@ -248,7 +246,7 @@ public class FiverReceiver extends Thread{
                         }
                         if (blockCount == blockToInjectFault) {
                             md.update(Byte.parseByte("1"));
-                            //System.out.println("Inserted error:" + blockCount );
+                            System.out.println("Inserted error:" + blockCount );
                         }
                         blockCount++;
                         long offset = fileLength - remaining - processedBytes;

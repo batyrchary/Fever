@@ -235,7 +235,7 @@ public class FiverSender {
                     //INTEGRITY_VERIFICATION_BLOCK_SIZE = fileSize;
                     while (remaining > 0) {
                         long currentBlockSize = Math.min(INTEGRITY_VERIFICATION_BLOCK_SIZE, remaining + processedBytes);
-                        System.out.println("Block size:" + currentBlockSize);
+                        System.out.println("Block size:" + currentBlockSize + " -- " + processedBytes);
                         byte[] leftOverBytes = null;
                         while (processedBytes < currentBlockSize) {
                             item = items.poll(100, TimeUnit.MILLISECONDS);
@@ -246,7 +246,7 @@ public class FiverSender {
                             if (item.length + processedBytes > currentBlockSize) {
                                 usedBytes = (int)(currentBlockSize - processedBytes);
                                 md.update(item.buffer, 0, usedBytes);
-                                leftOverBytes = Arrays.copyOfRange(item.buffer, usedBytes + 1, item.length+1);
+                                leftOverBytes = Arrays.copyOfRange(item.buffer, usedBytes, item.length);
                             } else {
                                 md.update(item.buffer, 0, item.length);
                             }
@@ -257,11 +257,7 @@ public class FiverSender {
                         long offset = currentFile.length - remaining - processedBytes;
                         byte[] digest = md.digest();
                         String hex = (new HexBinaryAdapter()).marshal(digest);
-                        //System.out.print("Checksum of file " + currentFile.file.getName()  + " offset:" + offset +
-                        //        " length:" + processedBytes + "*" + currentBlockSize + " Source-hex:"+hex);
                         String destinationHex = dataInputStream.readUTF();
-                        //System.out.print(" Dest-hex:" + destinationHex);
-                        System.out.println(" Source-hex:"+hex + " destination hex:" + destinationHex + " processed:" + processedBytes);
                         if (hex.compareTo(destinationHex) != 0 ) { // Checksums dont match
                             totalIntegrityFailures++;
                             System.out.print("Checksum of file " + currentFile.file.getName()  + " offset:" + offset +
@@ -275,7 +271,7 @@ public class FiverSender {
                             }
                         }
                         md.reset();
-                        processedBytes = 0;
+                        processedBytes = 0L;
                         if (leftOverBytes != null) {
                             md.update(leftOverBytes);
                             remaining -= leftOverBytes.length;
