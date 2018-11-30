@@ -32,7 +32,7 @@ public class FiverReceiver extends Thread{
         int length;
 
         public Item(byte[] buffer, int length){
-            this.buffer = buffer;
+            this.buffer = Arrays.copyOf(buffer, length);
             this.length = length;
         }
     }
@@ -213,7 +213,7 @@ public class FiverReceiver extends Thread{
                 float random  = generator.nextFloat();
                 int blockToInjectFault = -1;
                 System.out.println("Random:" + random);
-                if (random < 0.6) { // error rate
+                if (random < 0) { // error rate
                     totalFaultInjections++;
                     int totalBlocks = (int)(fileLength/INTEGRITY_VERIFICATION_BLOCK_SIZE);
                     blockToInjectFault = ThreadLocalRandom.current().nextInt(Math.max(1,totalBlocks));
@@ -225,6 +225,7 @@ public class FiverReceiver extends Thread{
                     int blockCount = 0;
                     while (remaining > 0) {
                         Long currentBlockSize = Math.min (INTEGRITY_VERIFICATION_BLOCK_SIZE, remaining + processedBytes);
+                        System.out.println("Block size:" + currentBlockSize);
                         byte[] leftOverBytes = null;
                         while (processedBytes.compareTo( currentBlockSize) < 0) {
                             item = items.poll(100, TimeUnit.MILLISECONDS);
@@ -236,7 +237,9 @@ public class FiverReceiver extends Thread{
                                 usedBytes = (int)(currentBlockSize - processedBytes);
                                 md.update(item.buffer, 0, usedBytes);
                                 leftOverBytes = Arrays.copyOfRange(item.buffer, usedBytes + 1, item.length+1);
+                                System.out.println("Leftover");
                             } else {
+                                //System.out.println("Processing " +item.length + " total: " + (processedBytes + usedBytes));
                                 md.update(item.buffer, 0, item.length);
                             }
                             remaining -= usedBytes;
@@ -245,7 +248,7 @@ public class FiverReceiver extends Thread{
                         }
                         if (blockCount == blockToInjectFault) {
                             md.update(Byte.parseByte("1"));
-                            System.out.println("Inserted error:" + blockCount );
+                            //System.out.println("Inserted error:" + blockCount );
                         }
                         blockCount++;
                         long offset = fileLength - remaining - processedBytes;
@@ -257,7 +260,8 @@ public class FiverReceiver extends Thread{
                                     " duration:" +  (System.currentTimeMillis() - init) / 1000.0 +
                                     " s time:" + (System.currentTimeMillis() - startTime) / 1000.0);
                         }
-                        System.out.println("Sending hex:" + hex);
+
+                        System.out.println("Sending hex:" + hex + " bytes:" + processedBytes);
                         dataOutputStream.writeUTF(hex);
                         md.reset();
                         processedBytes = 0L;

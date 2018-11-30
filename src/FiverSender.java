@@ -28,15 +28,6 @@ public class FiverSender {
 
     static LinkedBlockingQueue<Item> items = new LinkedBlockingQueue<>(10000);
 
-    public FiverSender(String host, int port) {
-        try {
-            s = new Socket(host, port);
-            s.setSoTimeout(10000);
-        } catch (Exception e) {
-            System.out.println(e);
-        }
-    }
-
     public class FiverFile {
         public FiverFile(File file, long offset, long length) {
             this.file = file;
@@ -47,6 +38,28 @@ public class FiverSender {
         Long offset;
         Long length;
     }
+
+    class Item {
+        byte[] buffer;
+        int length;
+
+        public Item(byte[] buffer, int length){
+            this.buffer =  Arrays.copyOf(buffer, length);
+            this.length = length;
+        }
+    }
+
+    public FiverSender(String host, int port) {
+        try {
+            s = new Socket(host, port);
+            s.setSoTimeout(10000);
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+    }
+
+
+
 
 
     public void sendFile(String path) throws IOException {
@@ -170,15 +183,6 @@ public class FiverSender {
     }
 
 
-    class Item {
-        byte[] buffer;
-        int length;
-
-        public Item(byte[] buffer, int length){
-            this.buffer = buffer;
-            this.length = length;
-        }
-    }
 
 
     public class ChecksumThread implements Runnable {
@@ -213,6 +217,7 @@ public class FiverSender {
             } catch (NoSuchAlgorithmException e) {
                 e.printStackTrace();
             }
+            md.reset();
             int totalIntegrityFailures = 0;
             try {
                 while (!allFileTransfersCompleted || !items.isEmpty()) {
@@ -230,6 +235,7 @@ public class FiverSender {
                     //INTEGRITY_VERIFICATION_BLOCK_SIZE = fileSize;
                     while (remaining > 0) {
                         long currentBlockSize = Math.min(INTEGRITY_VERIFICATION_BLOCK_SIZE, remaining + processedBytes);
+                        System.out.println("Block size:" + currentBlockSize);
                         byte[] leftOverBytes = null;
                         while (processedBytes < currentBlockSize) {
                             item = items.poll(100, TimeUnit.MILLISECONDS);
@@ -255,6 +261,7 @@ public class FiverSender {
                         //        " length:" + processedBytes + "*" + currentBlockSize + " Source-hex:"+hex);
                         String destinationHex = dataInputStream.readUTF();
                         //System.out.print(" Dest-hex:" + destinationHex);
+                        System.out.println(" Source-hex:"+hex + " destination hex:" + destinationHex + " processed:" + processedBytes);
                         if (hex.compareTo(destinationHex) != 0 ) { // Checksums dont match
                             totalIntegrityFailures++;
                             System.out.print("Checksum of file " + currentFile.file.getName()  + " offset:" + offset +
