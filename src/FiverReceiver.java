@@ -212,7 +212,7 @@ public class FiverReceiver extends Thread{
                 //INTEGRITY_VERIFICATION_BLOCK_SIZE = fileLength;
                 float random  = generator.nextFloat();
                 int blockToInjectFault = -1;
-                System.out.println("Random:" + random);
+                //System.out.println("Random:" + random);
                 if (random < 0) { // error rate
                     totalFaultInjections++;
                     int totalBlocks = (int)(fileLength/INTEGRITY_VERIFICATION_BLOCK_SIZE);

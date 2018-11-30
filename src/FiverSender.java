@@ -22,7 +22,7 @@ public class FiverSender {
     static long totalChecksumBytes = 0;
     long INTEGRITY_VERIFICATION_BLOCK_SIZE = 256 * 1024 * 1024;
     long startTime;
-    boolean debug = true;
+    boolean debug = false;
 
     static String fileOrdering = "shuffle";
 
