@@ -2,7 +2,7 @@
  
 **Abstract**: End-to-end integrity verification minimizes the likelihood of silent data corruption by comparing checksum of files at source and destination servers using secure hash algorithms such as MD5 and SHA1. However, it imposes significant performance penalty due to overhead of checksum computation. In this project, we propose Fast Integrity VERification (FIVER) algorithm which overlaps checksum computation and data transfer operations of files to minimize the cost of integrity verification. Extensive experiments show that FIVER is able to bring down the cost from 60% by the state-of-the-art solutions to below 10\% by concurrently executing transfer and checksum operations and enabling file I/O share between them. We also implemented FIVER-Hybrid to mimic disk access patterns of sequential integrity verification approach to capture possible data corruption that may occur during file write operations which FIVER may miss. Results show that FIVER-Hybrid is able to reduce execution time by 20% compared to sequential approach without compromising the reliability of integrity verification.
  
- Source code of algorithms implemented in the [Paper](https://arxiv.org/abs/1811.01161)
+ Source code of algorithms implemented in the [paper](https://arxiv.org/abs/1811.01161)
  ##### 1. FIVER
  Compile and Run Receiver
  ```sh
